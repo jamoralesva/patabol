@@ -109,7 +109,7 @@ ngrok http 5000
 
 1. En el dashboard de Railway, haz clic en **New Project**
 2. Selecciona **Deploy from GitHub repo**
-3. Elige tu repositorio `minibol`
+3. Elige tu repositorio `patabol`
 4. Railway detectará automáticamente que es un proyecto Python
 
 ### 3.3 Configurar variables de entorno
