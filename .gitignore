@@ -5,6 +5,8 @@ dist/
 build/
 eggs/
 .eggs/
+__pycache__/
+*.py[cod]
 
 # Entornos virtuales
 env/
