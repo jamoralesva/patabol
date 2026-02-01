@@ -1,0 +1,50 @@
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# Entornos virtuales
+env/
+venv/
+ENV/
+.venv
+.venv/
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+env.example.txt
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs y tests
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Despliegue
+.railway/
+*.local
+
+# Resultados del proyecto
+resultado_partido.json
+.env
