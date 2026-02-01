@@ -5,7 +5,6 @@ Permite detectar primera interacción y enviar mensaje de bienvenida.
 
 from typing import Set
 
-# Usuarios que ya han enviado al menos un mensaje (número de teléfono)
 _usuarios_que_ya_interactuaron: Set[str] = set()
 
 

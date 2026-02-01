@@ -44,13 +44,14 @@ Esta guía te llevará paso a paso para desplegar el bot de PATABOL en WhatsApp 
 Asegúrate de tener estos archivos en tu repositorio:
 
 ```
-minibol/
-├── patabol.py          # Lógica de dominio
-├── cli.py              # CLI local
-├── whatsapp_bot.py     # Bot de WhatsApp
-├── requirements.txt    # Dependencias
-├── Procfile            # Para Railway
-├── runtime.txt         # Versión de Python
+patabol/
+├── core/                # Dominio (patabol, sesiones, seguimiento_usuarios)
+├── bot/                 # Lógica del bot (comandos, formateo, simulación)
+├── channels/            # Canales (whatsapp, cli)
+├── entrypoints/         # Puntos de entrada (whatsapp_bot, cli)
+├── requirements.txt
+├── Procfile             # gunicorn entrypoints.whatsapp_bot:app
+├── runtime.txt
 └── README.md
 ```
 
@@ -77,9 +78,9 @@ brew install ngrok
 # O descarga desde https://ngrok.com
 ```
 
-4. Inicia el servidor Flask:
+4. Inicia el servidor Flask (desde la raíz del proyecto):
 ```bash
-python whatsapp_bot.py
+python -m entrypoints.whatsapp_bot
 ```
 
 5. En otra terminal, inicia ngrok:
@@ -128,7 +129,7 @@ TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
 
 1. Railway debería detectar automáticamente el `Procfile`
 2. Si no, ve a **Settings** > **Deploy** y configura:
-   - **Start Command:** `gunicorn whatsapp_bot:app --bind 0.0.0.0:$PORT`
+   - **Start Command:** `gunicorn entrypoints.whatsapp_bot:app --bind 0.0.0.0:$PORT`
 
 ### 3.5 Obtener URL pública
 

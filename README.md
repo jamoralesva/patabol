@@ -10,7 +10,7 @@ PATABOL es un simulador de partidos de fútbol donde puedes:
 - Simular partidos de 5 minutos con narrativa en tiempo real
 - Ver estadísticas detalladas y resultados
 
-**¡Ahora disponible en WhatsApp!** Juega desde tu teléfono usando el bot de WhatsApp.
+**¡Disponible en WhatsApp, Telegram y CLI!** Misma experiencia por comandos en todos los canales.
 
 ## 🎮 Características
 
@@ -19,144 +19,132 @@ PATABOL es un simulador de partidos de fútbol donde puedes:
 - **Simulación realista**: Partidos de 5 minutos divididos en 30 estados de 10 segundos
 - **Narrativa deportiva**: Relato minuto a minuto de los eventos del partido
 - **Sistema de magia**: Atributo oculto que influye en jugadas épicas
-- **Exportación**: Resultados exportables a JSON
+- **Multi-canal**: Mismos comandos en CLI, WhatsApp y Telegram
+
+## 🏗️ Arquitectura de la aplicación
+
+El proyecto está organizado en capas para separar dominio, lógica del bot y canales:
+
+```
+patabol/
+├── core/                    # Núcleo del dominio
+│   ├── patabol.py           # Lógica del juego (Patabolista, SimuladorPartido, etc.)
+│   ├── sesiones.py          # Gestión de sesiones de juego (en memoria)
+│   └── seguimiento_usuarios.py   # Primera interacción y bienvenida
+│
+├── bot/                     # Núcleo del bot (canal-agnóstico)
+│   ├── core.py              # Procesamiento de comandos (procesar_comando)
+│   ├── formatters.py        # Formateo de mensajes (pool, resultado, estadísticas)
+│   └── simulation.py        # Ejecución de la simulación y notificación
+│
+├── channels/                # Adaptadores por canal
+│   ├── whatsapp.py          # Flask + Twilio (webhook, envío de mensajes)
+│   ├── telegram.py          # python-telegram-bot (polling)
+│   └── cli.py               # REPL por comandos (misma experiencia que WhatsApp)
+│
+├── entrypoints/             # Puntos de entrada
+│   ├── cli.py               # Ejecutar: python -m entrypoints.cli
+│   ├── whatsapp_bot.py      # Ejecutar: python -m entrypoints.whatsapp_bot
+│   └── telegram_bot.py     # Ejecutar: python -m entrypoints.telegram_bot
+│
+├── requirements.txt
+├── Procfile                 # gunicorn entrypoints.whatsapp_bot:app
+└── README.md
+```
+
+- **core**: Dominio del juego y estado (sesiones, usuarios). Sin dependencias de presentación.
+- **bot**: Interpreta comandos y formatea respuestas. Recibe un callback para notificar a otros usuarios; no conoce Twilio ni Flask.
+- **channels**: Cada canal (WhatsApp, Telegram, CLI) adapta entrada/salida y llama al bot.
+- **entrypoints**: Scripts para arrancar cada canal (CLI, servidor WhatsApp o bot Telegram).
 
 ## 🚀 Instalación
 
-### Modo CLI (Local)
+### Modo CLI
 
-No requiere dependencias externas. Solo necesitas Python 3.7 o superior.
+No requiere dependencias externas. Python 3.7 o superior.
 
 ```bash
-# Verificar versión de Python
 python --version
-
-# Ejecutar el juego
-python cli.py
+python -m entrypoints.cli
 ```
 
 ### Bot de WhatsApp
 
-Para desplegar el bot de WhatsApp, consulta la [guía de despliegue completa](DEPLOY.md).
+Para desplegar el bot de WhatsApp, consulta la [guía de despliegue](DEPLOY.md).
 
-**Requisitos:**
-- Cuenta de Twilio
-- Cuenta de Railway (o similar)
-- Python 3.7+
+**Requisitos:** Cuenta Twilio, Railway (o similar), Python 3.7+
 
-**Instalación local (para pruebas):**
+**Prueba local:**
 ```bash
 pip install -r requirements.txt
-python whatsapp_bot.py
+python -m entrypoints.whatsapp_bot
+```
+
+### Bot de Telegram
+
+**Requisitos:** Token de bot de Telegram (crear con [@BotFather](https://t.me/BotFather)), Python 3.7+
+
+**Configuración:** Añade en tu `.env`:
+```
+TELEGRAM_BOT_TOKEN=tu_token_aquí
+```
+
+**Prueba local:**
+```bash
+pip install -r requirements.txt
+python -m entrypoints.telegram_bot
 ```
 
 ## 📖 Uso
 
-### Modo CLI
+### CLI, WhatsApp y Telegram (mismos comandos)
 
-1. **Generar pool de patabolistas**
-   - Opción 1 del menú
-   - Puedes ingresar una seed para reproducibilidad
+- `/sesion` &lt;nickname&gt; [nombre_equipo] — Crear sesión (te da código para compartir)
+- `/unirse` *(/u)* &lt;código&gt; &lt;nickname&gt; [nombre_equipo] — Unirse a una sesión. Creador: `/u ia` [nombre_equipo] para jugar vs IA
+- `/pool` *(/p)* [port|def|med|del] — Ver pool disponible (filtros por rol)
+- `/detalle` *(/d)* &lt;id&gt; — Detalle de un patabolista
+- `/seleccionar` *(/s)* &lt;id1&gt; [id2] … — Elegir tu equipo (1–5 jugadores)
+- `/seleccionar_auto` *(/a)* — Equipo automático
+- `/quitar` *(/q)* &lt;id&gt; — Devolver un jugador al pool
+- `/equipo` *(/e)* — Ver tu equipo
+- `/confirmar` *(/c)* — Confirmar equipo (el partido arranca cuando ambos confirman)
+- `/estadisticas` *(/est)* — Estadísticas del último partido
+- `/salir` — Salir de la sesión
+- `/ayuda` *(/h)* — Ayuda
 
-2. **Ver pool disponible**
-   - Opción 2 del menú
-   - Muestra todos los jugadores con sus atributos visibles
-
-3. **Seleccionar mi equipo**
-   - Opción 3 del menú
-   - Debes seleccionar 5 jugadores (1 portero obligatorio)
-   - El equipo rival se genera automáticamente
-
-4. **Simular partido**
-   - Opción 4 del menú
-   - Se muestra la narrativa del partido
-   - Resultado final y estadísticas
-   - Opción de exportar a JSON
-
-### Bot de WhatsApp
-
-Una vez desplegado, envía comandos por WhatsApp:
-
-- `/ayuda` - Muestra comandos disponibles
-- `/generar [seed]` - Genera pool de 15 patabolistas
-- `/pool` - Muestra pool disponible
-- `/seleccionar <id1> <id2> <id3> <id4> <id5>` - Selecciona tu equipo
-- `/jugar` - Simula partido
-- `/estadisticas` - Muestra estadísticas del último partido
-- `/limpiar` - Limpia tu sesión
-
-**Ejemplo de flujo:**
+**Ejemplo de flujo (CLI, WhatsApp o Telegram):**
 ```
-/generar 42
+/sesion Leo Los Rayos
+/u ia
 /pool
-/seleccionar P001 P005 P008 P012 P015
-/jugar
+/s P1 P5 P8 P3 P10
+/confirmar
 ```
 
 ## 🎯 Reglas del Juego
 
-- **Duración**: 5 minutos (300 segundos) divididos en 30 estados
-- **Equipos**: 5 jugadores por equipo (1 portero + 4 de campo)
-- **Goles**: Solo los delanteros pueden intentar hacer gol
+- **Duración**: 5 minutos (30 estados de 10 s)
+- **Equipos**: 1–5 jugadores por equipo (1 portero recomendado)
+- **Goles**: Solo delanteros pueden intentar gol
 - **Magia**: Atributo oculto que aumenta probabilidades de éxito
-  - 60% de jugadores tienen magia 1-3
-  - 30% tienen magia 4-6
-  - 9% tienen magia 7-8
-  - 1% tienen magia 9-10 (legendarios)
 
 ## 📊 Atributos
 
-- **Control** (1-10): Habilidad para mantener la posesión
-- **Velocidad** (1-10): Rapidez de movimiento
-- **Fuerza** (1-10): Capacidad física (mayor probabilidad de faltas)
-- **Regate** (1-10): Habilidad para eludir oponentes
-- **Magia** (1-10): Atributo oculto que influye en eventos especiales
-
-## 🏗️ Arquitectura
-
-El código está organizado en dos capas principales:
-
-### Dominio (Lógica del Juego)
-- `Patabolista`: Entidad principal con atributos y estadísticas
-- `GeneradorPool`: Genera pools de jugadores con distribución realista
-- `SimuladorPartido`: Simula partidos completos
-- `ResultadoPartido`: Contiene el resultado estructurado
-
-### Presentación
-- `InterfazCLI` (`cli.py`): Maneja la interacción por consola
-- `WhatsAppBot` (`whatsapp_bot.py`): Bot de WhatsApp usando Twilio
-- Menú interactivo (CLI) o comandos por WhatsApp
-- Visualización de datos adaptada a cada interfaz
-- Exportación de resultados (CLI)
-
-## 📝 Ejemplo de Uso
-
-```
-⚽ PATABOL - Menú Principal
-1. Generar pool de patabolistas
-2. Ver pool disponible
-3. Seleccionar mi equipo
-4. Simular partido
-5. Salir
-
-Selecciona una opción: 1
-Ingresa seed (Enter para aleatorio): 42
-
-✅ Pool de 15 patabolistas generado
-...
-```
+- **Control** (1–10): Mantener posesión
+- **Velocidad** (1–10): Rapidez
+- **Fuerza** (1–10): Físico (más faltas)
+- **Regate** (1–10): Eludir oponentes
+- **Magia** (1–10): Oculto, influye en eventos especiales
 
 ## 🔧 Extensibilidad
 
-El código está diseñado para ser fácilmente extensible:
-- Nuevos roles de jugadores
-- Nuevas acciones durante el partido
-- Diferentes sistemas de puntuación
-- Múltiples modos de juego
+- Nuevos roles o acciones en `core.patabol`
+- Nuevos comandos en `bot.core`
+- Nuevos canales en `channels/` usando la misma API del bot
 
-## 📚 Documentación Adicional
+## 📚 Documentación
 
-- [Guía de Despliegue](DEPLOY.md) - Instrucciones completas para desplegar el bot de WhatsApp
+- [Guía de Despliegue](DEPLOY.md) — Desplegar el bot de WhatsApp (Twilio + Railway)
 
 ## 📄 Licencia
 
