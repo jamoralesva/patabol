@@ -176,6 +176,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
+def _webhook_path_from_url(url: str) -> str:
+    """Extrae la ruta para Flask desde TELEGRAM_WEBHOOK_URL (si falta https://, path puede venir mal)."""
+    parsed = urlparse(url)
+    path = (parsed.path or "").rstrip("/") or "/telegram"
+    if not path.startswith("/"):
+        path = "/" + path.split("/")[-1] if "/" in path else "/telegram"
+    return path or "/telegram"
+
+
 def build_application(webhook: bool = False) -> Application:
     """Construye la aplicación de Telegram con handlers."""
     if not TELEGRAM_BOT_TOKEN:
@@ -241,7 +250,7 @@ def get_app():
         )
 
     _telegram_application = build_application(webhook=True)
-    path = urlparse(TELEGRAM_WEBHOOK_URL).path.rstrip("/") or "/telegram"
+    path = _webhook_path_from_url(TELEGRAM_WEBHOOK_URL)
     flask_app = Flask(__name__)
 
     @flask_app.post(path)
@@ -280,7 +289,7 @@ def run_webhook() -> None:
         )
 
     application = build_application(webhook=True)
-    path = urlparse(TELEGRAM_WEBHOOK_URL).path.rstrip("/") or "/telegram"
+    path = _webhook_path_from_url(TELEGRAM_WEBHOOK_URL)
 
     flask_app = Flask(__name__)
 
