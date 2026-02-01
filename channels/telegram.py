@@ -200,8 +200,80 @@ def run_polling() -> None:
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
+# Usado por get_app() cuando se sirve con Gunicorn (WSGI)
+_telegram_application = None
+_telegram_loop = None
+_telegram_ready = threading.Event()
+
+
+def _run_telegram_webhook_background(application: Application) -> None:
+    """Ejecuta el event loop del bot en un hilo (para uso con Gunicorn)."""
+    global _telegram_loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    _telegram_loop = loop
+
+    async def setup_and_run():
+        await application.bot.set_webhook(
+            url=TELEGRAM_WEBHOOK_URL,
+            allowed_updates=Update.ALL_TYPES,
+        )
+        logger.info("Webhook registrado: %s", TELEGRAM_WEBHOOK_URL)
+        async with application:
+            await application.start()
+            _telegram_ready.set()
+            while True:
+                await asyncio.sleep(3600)
+
+    loop.run_until_complete(setup_and_run())
+
+
+def get_app():
+    """
+    Crea la app Flask para el webhook de Telegram.
+    Para uso con Gunicorn (entrypoints.telegram_bot:app).
+    Arranca el bot de Telegram en un hilo en segundo plano.
+    """
+    global _telegram_application
+    if not TELEGRAM_WEBHOOK_URL:
+        raise ValueError(
+            "TELEGRAM_WEBHOOK_URL no está configurado (ej. https://tudominio.com/telegram)"
+        )
+
+    _telegram_application = build_application(webhook=True)
+    path = urlparse(TELEGRAM_WEBHOOK_URL).path.rstrip("/") or "/telegram"
+    flask_app = Flask(__name__)
+
+    @flask_app.post(path)
+    def telegram_webhook():
+        """Recibe updates de Telegram y los encola (sync para WSGI/Gunicorn)."""
+        data = request.get_json(silent=True)
+        if not data:
+            return Response(status=HTTPStatus.BAD_REQUEST)
+        update = Update.de_json(data=data, bot=_telegram_application.bot)
+        future = asyncio.run_coroutine_threadsafe(
+            _telegram_application.update_queue.put(update), _telegram_loop
+        )
+        future.result(timeout=5)
+        return Response(status=HTTPStatus.OK)
+
+    @flask_app.get("/health")
+    def health():
+        return Response("OK", status=HTTPStatus.OK)
+
+    thread = threading.Thread(
+        target=_run_telegram_webhook_background,
+        args=(_telegram_application,),
+        daemon=True,
+    )
+    thread.start()
+    if not _telegram_ready.wait(timeout=15):
+        logger.warning("Telegram bot background no listo en 15s; las primeras peticiones pueden fallar")
+    return flask_app
+
+
 def run_webhook() -> None:
-    """Arranca el bot en modo webhook: registra la URL en Telegram y sirve updates por HTTP."""
+    """Arranca el bot en modo webhook: registra la URL en Telegram y sirve updates por HTTP (uvicorn)."""
     if not TELEGRAM_WEBHOOK_URL:
         raise ValueError(
             "TELEGRAM_WEBHOOK_URL no está configurado (ej. https://tudominio.com/telegram)"
